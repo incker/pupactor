@@ -2,8 +2,9 @@
 name = "pupactor_example"
 version = "0.1.0"
 edition = "2021"
-license = "MIT"
+description = "Examples for pupactor use"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 tokio = { version = "1.40.0", features = ["full"] }
-pupactor = { path = "../pupactor" }
+pupactor = { version = "0.1.0", path = "../pupactor" }
