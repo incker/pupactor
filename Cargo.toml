@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = [
+    "pupactor_macro",
+    "pupactor",
+    "pupactor_example",
+]
+
+default-members = ["pupactor_example"]
+
+[profile.release]
+opt-level = 3
+strip = true
+debug = false
+debug-assertions = false
+overflow-checks = true
+lto = true
+panic = 'unwind'
+incremental = true
+codegen-units = 16
+rpath = false
+
+[workspace.dependencies]

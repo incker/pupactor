@@ -1,0 +1,12 @@
+[package]
+name = "pupactor"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+tokio = { version = "1.40.0", features = ["full"] }
+impl-enum = "0.3.1"
+quote = "1.0"
+syn = {  version = "2.0.77", features = ["full"]}
+pupactor_macro = { path = "../pupactor_macro" }
