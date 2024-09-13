@@ -9,7 +9,6 @@ where
     fn stop_actor(self, shut_down: ShutDown) -> impl Future<Output=()> + Send;
 }
 
-
 pub trait WithStopActor<Act: Actor> {
     fn stop_actor(self, actor: Act) -> impl Future<Output=()> + Send;
 }

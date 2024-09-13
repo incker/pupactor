@@ -1,9 +1,10 @@
 [package]
 name = "pupactor_macro"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Macros for pupactor"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/incker/pupactor"
 
 [lib]
 proc-macro = true
@@ -11,3 +12,6 @@ proc-macro = true
 [dependencies]
 quote = "1.0.37"
 syn = {  version = "2.0.77", features = ["full"]}
+
+[lints.rust]
+unsafe_code = "forbid"

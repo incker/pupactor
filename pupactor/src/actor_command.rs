@@ -13,14 +13,12 @@ impl<ShutDown> From<()> for ActorCommand<ShutDown> {
     }
 }
 
-
 impl<ShutDown> From<Break> for ActorCommand<ShutDown> {
     #[inline(always)]
     fn from(_: Break) -> Self {
         ActorCommand(Err(Ok(Break)))
     }
 }
-
 
 impl<ShutDown, K> From<Kill<K>> for ActorCommand<ShutDown>
 where

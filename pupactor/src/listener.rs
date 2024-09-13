@@ -14,7 +14,6 @@ pub struct Listener<T, Msg, Shutdown = Infallible>(T, PhantomData<(Msg, Shutdown
 where
     T: ActorListener<Msg, Shutdown>;
 
-
 impl<T, Msg, Shutdown> Deref for Listener<T, Msg, Shutdown>
 where
     T: ActorListener<Msg, Shutdown>,
@@ -26,7 +25,6 @@ where
     }
 }
 
-
 impl<T, Msg, Shutdown> DerefMut for Listener<T, Msg, Shutdown>
 where
     T: ActorListener<Msg, Shutdown>,
@@ -35,7 +33,6 @@ where
         &mut self.0
     }
 }
-
 
 impl<T, Msg, Shutdown> Listener<T, Msg, Shutdown>
 where
@@ -64,8 +61,7 @@ where
 }
 
 /// UnboundedReceiver
-impl<Msg, Shutdown> ActorListener<Msg, Shutdown> for UnboundedReceiver<ActorMsg<Msg, Shutdown>>
-{
+impl<Msg, Shutdown> ActorListener<Msg, Shutdown> for UnboundedReceiver<ActorMsg<Msg, Shutdown>> {
     #[inline(always)]
     async fn next_msg(&mut self) -> Option<ActorMsg<Msg, Shutdown>> {
         self.recv().await

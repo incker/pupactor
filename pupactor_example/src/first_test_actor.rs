@@ -1,12 +1,11 @@
-use pupactor::{run_actor, Actor, ActorCommand, ActorMsg, AsyncHandle, Break, Continue, Handle, InitActor, Kill, Listener, StopActor};
+use pupactor::{
+    run_actor, ActorMsg, AsyncHandle, Break, Continue, Handle, InitActor, Kill, Listener, StopActor,
+};
 use pupactor::{ActorMsgHandle, ActorShutdown, Pupactor};
-use std::convert::Infallible;
 use std::time::Instant;
-use tokio::select;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::Interval;
-
 
 #[derive(ActorMsgHandle)]
 #[actor(kind = "MyFirstTestActor")]
@@ -16,10 +15,8 @@ pub enum Value {
     String(String),
 }
 
-
 #[derive(ActorShutdown)]
 pub struct MyActorShutdown;
-
 
 // generated
 // impl AsyncHandle<Value> for FirstTestActor {
@@ -31,7 +28,6 @@ pub struct MyActorShutdown;
 //         }
 //     }
 // }
-
 
 #[derive(Pupactor)]
 #[actor(shutdown = "MyActorShutdown")]
@@ -46,19 +42,17 @@ struct MyFirstTestActor {
     channel: Listener<UnboundedReceiver<ActorMsg<Instant>>, Instant>,
 }
 
-
 impl InitActor<UnboundedReceiver<ActorMsg<Instant>>> for MyFirstTestActor {
-    async fn init_actor(receiver: UnboundedReceiver<ActorMsg<Instant>>) -> Self {
-        MyFirstTestActor {
+    async fn init_actor(receiver: UnboundedReceiver<ActorMsg<Instant>>) -> Option<Self> {
+        Some(MyFirstTestActor {
             some_data: true,
             some_other_data: 0,
             interval: Listener::new(tokio::time::interval(tokio::time::Duration::from_secs(1))),
             interval2: Listener::new(tokio::time::interval(tokio::time::Duration::from_secs(2))),
             channel: Listener::new(receiver),
-        }
+        })
     }
 }
-
 
 pub async fn test_function() {
     let (_sender, receiver) = mpsc::unbounded_channel();
@@ -67,7 +61,6 @@ pub async fn test_function() {
 
     // actor.infinite_loop().await;
 }
-
 
 /*
 impl Actor for FirstTestActor {
@@ -143,13 +136,13 @@ impl Actor for FirstTestActor {
 }
 */
 
-
 impl AsyncHandle<u32> for MyFirstTestActor {
     async fn async_handle(&mut self, value: u32) -> Continue {
+        // some code
+        self.some_data = !self.some_data;
         let _ = value;
     }
 }
-
 
 impl Handle<u64> for MyFirstTestActor {
     fn handle(&mut self, value: u64) -> Kill<MyActorShutdown> {
@@ -158,7 +151,6 @@ impl Handle<u64> for MyFirstTestActor {
     }
 }
 
-
 impl AsyncHandle<String> for MyFirstTestActor {
     async fn async_handle(&mut self, value: String) -> Option<Break> {
         let _ = value;
@@ -166,9 +158,8 @@ impl AsyncHandle<String> for MyFirstTestActor {
     }
 }
 
-
 impl AsyncHandle<Instant> for MyFirstTestActor {
-    async fn async_handle(&mut self, value: Instant) -> Option<Kill<MyActorShutdown>> {
+    async fn async_handle(&mut self, _value: Instant) -> Option<Kill<MyActorShutdown>> {
         self.some_other_data += 1;
         println!("New msg, couner: {}", self.some_other_data);
 
@@ -180,14 +171,12 @@ impl AsyncHandle<Instant> for MyFirstTestActor {
     }
 }
 
-
 impl StopActor<MyActorShutdown> for MyFirstTestActor {
     async fn stop_actor(self, shut_down: MyActorShutdown) {
         println!("Called Shutdown");
         let _ = shut_down;
     }
 }
-
 
 impl StopActor<Break> for MyFirstTestActor {
     async fn stop_actor(self, shut_down: Break) {

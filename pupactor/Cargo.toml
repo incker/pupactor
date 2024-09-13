@@ -1,13 +1,17 @@
 [package]
 name = "pupactor"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Pupactor is actor model library built with tokio"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/incker/pupactor"
+keywords = ["actor"]
+categories = ["asynchronous"]
 
 [dependencies]
-tokio = { version = "1.40.0", features = ["full"] }
-impl-enum = "0.3.1"
-quote = "1.0"
-syn = {  version = "2.0.77", features = ["full"]}
-pupactor_macro = { version = "0.1.0", path = "../pupactor_macro" }
+tokio = { version = "1.40.0", features = ["sync", "rt", "time"] }
+pupactor_macro = { version = "0.1.1", path = "../pupactor_macro" }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)'] }
+unsafe_code = "forbid"

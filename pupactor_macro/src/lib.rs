@@ -13,17 +13,19 @@ pub fn actor_msg_handle_derive(input: TokenStream) -> TokenStream {
     for attr in input.attrs {
         if attr.path().is_ident("actor") {
             attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("kind") {  // this parses the `kind`
-                    let value = meta.value()?;   // this parses the `=`
-                    let lit_str: LitStr = value.parse()?;  // this parses `"EarlGrey"`
+                if meta.path.is_ident("kind") {
+                    // this parses the `kind`
+                    let value = meta.value()?; // this parses the `=`
+                    let lit_str: LitStr = value.parse()?; // this parses `"EarlGrey"`
                     actor_ident = Some(Ident::new(&lit_str.value(), lit_str.span()));
                     Ok(())
                 } else {
                     Err(meta.error("no kind attribute"))
                 }
-            }).unwrap_or_else(|err| {
-                panic!("Failed to parse actor attribute: {}", err);
-            });
+            })
+                .unwrap_or_else(|err| {
+                    panic!("Failed to parse actor attribute: {}", err);
+                });
         }
     }
 
@@ -37,7 +39,7 @@ pub fn actor_msg_handle_derive(input: TokenStream) -> TokenStream {
                 Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
                     // let field_type = &fields.unnamed[0].ty;
                     quote! {
-                        #enum_name::#variant_name(val) => AsyncHandle::async_handle(self, val).await.into(),
+                        #enum_name::#variant_name(val) => pupactor::AsyncHandle::async_handle(self, val).await.into(),
                     }
                 }
                 _ => quote! {
@@ -51,9 +53,9 @@ pub fn actor_msg_handle_derive(input: TokenStream) -> TokenStream {
 
     // Генерация кода
     let expanded = quote! {
-        impl AsyncHandle<#enum_name> for #actor_ident {
+        impl pupactor::AsyncHandle<#enum_name> for #actor_ident {
             #[inline(always)]
-            async fn async_handle(&mut self, value: #enum_name) -> ActorCommand<Self::ShutDown> {
+            async fn async_handle(&mut self, value: #enum_name) -> pupactor::ActorCommand<Self::ShutDown> {
                 match value {
                     #(#variants)*
                 }
@@ -63,7 +65,6 @@ pub fn actor_msg_handle_derive(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
-
 
 #[proc_macro_derive(Pupactor, attributes(actor, listener))]
 pub fn pupactor_derive(input: TokenStream) -> TokenStream {
@@ -75,21 +76,22 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
     for attr in input.attrs {
         if attr.path().is_ident("actor") {
             attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("shutdown") {  // this parses the `kind`
-                    let value = meta.value()?;   // this parses the `=`
-                    let lit_str: LitStr = value.parse()?;  // this parses `"EarlGrey"`
+                if meta.path.is_ident("shutdown") {
+                    // this parses the `kind`
+                    let value = meta.value()?; // this parses the `=`
+                    let lit_str: LitStr = value.parse()?; // this parses `"EarlGrey"`
                     shutdown_ident = Some(Ident::new(&lit_str.value(), lit_str.span()));
                     Ok(())
                 } else {
                     Err(meta.error("no kind attribute"))
                 }
-            }).unwrap_or_else(|err| {
-                panic!("Failed to parse actor attribute: {}", err);
-            });
+            })
+                .unwrap_or_else(|err| {
+                    panic!("Failed to parse actor attribute: {}", err);
+                });
         }
     }
     let shutdown_ident = shutdown_ident.expect("Expected an `actor(shutdown = \"...\")` attribute");
-
 
     // todo
     // let shutdown_ident = shutdown_ident.unwrap_or_else(|| {
@@ -99,14 +101,21 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
 
     // Находим все поля с атрибутом #[listener]
     let listeners = if let Data::Struct(data_struct) = input.data {
-        data_struct.fields.iter().filter_map(|field| {
-            let field_name = field.ident.clone();
-            field.attrs.iter().find(|attr| attr.path().is_ident("listener")).map(|_| field_name)
-        }).collect::<Vec<_>>()
+        data_struct
+            .fields
+            .iter()
+            .filter_map(|field| {
+                let field_name = field.ident.clone();
+                field
+                    .attrs
+                    .iter()
+                    .find(|attr| attr.path().is_ident("listener"))
+                    .map(|_| field_name)
+            })
+            .collect::<Vec<_>>()
     } else {
         panic!("`Pupactor` can only be derived for structs");
     };
-
 
     /*
         // Извлечение вариантов enum и генерация соответствующих match-веток
@@ -129,15 +138,14 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
         panic!("MyMacro
      */
 
-
     // Генерация кода для каждого listener
     let listener_branches = listeners.iter().map(|field_name| {
         quote! {
             msg = Listener::next_msg(&mut self.#field_name) => {
                 if let Some(msg) = msg {
                     match msg {
-                        ActorMsg::Msg(msg) => {
-                            let command: ActorCommand<Self::ShutDown> = <Self as AsyncHandle<_>>::async_handle(self, msg).await.into();
+                        pupactor::ActorMsg::Msg(msg) => {
+                            let command: pupactor::ActorCommand<Self::ShutDown> = <Self as pupactor::AsyncHandle<_>>::async_handle(self, msg).await.into();
                             if let Err(err) = command.0 {
                                 let _ = err?;
                                 break;
@@ -145,7 +153,7 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
                                 continue;
                             }
                         }
-                        ActorMsg::Shutdown(shutdown) => {
+                        pupactor::ActorMsg::Shutdown(shutdown) => {
                             return Err(Self::ShutDown::from(shutdown));
                         }
                     }
@@ -158,16 +166,16 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
 
     // Генерация полного кода
     let expanded = quote! {
-        impl Actor for #struct_name {
+        impl pupactor::Actor for #struct_name {
             type ShutDown = #shutdown_ident;
 
-            async fn infinite_loop(&mut self) -> Result<Break, Self::ShutDown> {
+            async fn infinite_loop(&mut self) -> Result<pupactor::Break, Self::ShutDown> {
                 loop {
-                    select! {
+                    tokio::select! {
                         #(#listener_branches)*
                     }
                 }
-                Ok(Break)
+                Ok(pupactor::Break)
             }
         }
     };
@@ -181,9 +189,9 @@ pub fn actor_shutdown_derive(input: TokenStream) -> TokenStream {
     let struct_name = input.ident; // Имя структуры
 
     let expanded = quote! {
-        impl From<Infallible> for #struct_name {
+        impl From<std::convert::Infallible> for #struct_name {
             #[inline(always)]
-            fn from(_: Infallible) -> Self {
+            fn from(_: std::convert::Infallible) -> Self {
                 unreachable!()
             }
         }

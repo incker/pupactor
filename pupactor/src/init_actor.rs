@@ -6,28 +6,27 @@ where
     Self: Actor + Send + Sync + 'static,
     Init: Send + Sync + 'static,
 {
-    fn init_actor(init: Init) -> impl Future<Output=Self> + Send;
+    fn init_actor(init: Init) -> impl Future<Output = Option<Self>> + Send;
 }
 
 /// When Init == Act
-// impl<Act: Send> InitActor<Act> for Act
-// where
-//     Act: Actor + Send + Sync + 'static,
-// {
-//     #[inline(always)]
-//     async fn init_actor(init: Act) -> Act {
-//         init
-//     }
-// }
+impl<Act: Send> InitActor<Act> for Act
+where
+    Act: Actor + Send + Sync + 'static,
+{
+    #[inline(always)]
+    async fn init_actor(init: Act) -> Option<Act> {
+        Some(init)
+    }
+}
 
 pub trait WithInitActor<Act>
 where
     Act: Actor + Send + Sync + 'static,
     Self: Send + Sync + 'static + Sized,
 {
-    fn init_actor(self) -> impl Future<Output=Act> + Send;
+    fn init_actor(self) -> impl Future<Output = Option<Act>> + Send;
 }
-
 
 impl<Act, Init> WithInitActor<Act> for Init
 where
@@ -35,7 +34,7 @@ where
     Init: Send + Sync + 'static,
 {
     #[inline(always)]
-    fn init_actor(self) -> impl Future<Output=Act> + Send {
+    fn init_actor(self) -> impl Future<Output = Option<Act>> + Send {
         <Act as InitActor<Init>>::init_actor(self)
     }
 }
