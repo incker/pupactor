@@ -1,36 +1,28 @@
-use pupactor::{
-    run_actor, ActorMsg, AsyncHandle, Break, Continue, Handle, InitActor, Kill, Listener, StopActor,
-};
-use pupactor::{ActorMsgHandle, ActorShutdown, Pupactor};
+use pupactor::{actor_channel, run_actor, ActorMsg, ApplyCmd, AsyncHandle, Break, Cmd, Continue, Handle, InitActor, Listener};
+use pupactor::{ActorCmd, ActorMsgHandle, Pupactor};
 use std::time::Instant;
-use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::Interval;
 
+// This macro allows to write `handle` on each enum variant
+// Keep in mind that enum variants should be only one value:
+// bad: `MyEnumVariant(u32, String)`
+// good: `MyEnumVariant((u32, String))`
 #[derive(ActorMsgHandle)]
 #[actor(kind = "MyFirstTestActor")]
 pub enum Value {
+    MyGreetings(String),
     U32(u32),
     U64(u64),
-    String(String),
 }
 
-#[derive(ActorShutdown)]
+// Any command like `shutdown` or other problems with `listener`
+#[derive(ActorCmd)]
 pub struct MyActorShutdown;
 
-// generated
-// impl AsyncHandle<Value> for FirstTestActor {
-//     async fn async_handle(&mut self, value: Value) -> ActorCommand<Self::ShutDown> {
-//         match value {
-//             Value::U32(val) => self.async_handle(val).await.into(),
-//             Value::U64(val) => self.async_handle(val).await.into(),
-//             Value::String(val) => self.async_handle(val).await.into(),
-//         }
-//     }
-// }
 
 #[derive(Pupactor)]
-#[actor(shutdown = "MyActorShutdown")]
+#[actor(cmd = "MyActorShutdown")]
 struct MyFirstTestActor {
     some_data: bool,
     some_other_data: usize,
@@ -39,11 +31,11 @@ struct MyFirstTestActor {
     #[listener]
     interval2: Listener<Interval, Instant>,
     #[listener]
-    channel: Listener<UnboundedReceiver<ActorMsg<Instant>>, Instant>,
+    channel: Listener<UnboundedReceiver<ActorMsg<Value, MyActorShutdown>>, Value, MyActorShutdown>,
 }
 
-impl InitActor<UnboundedReceiver<ActorMsg<Instant>>> for MyFirstTestActor {
-    async fn init_actor(receiver: UnboundedReceiver<ActorMsg<Instant>>) -> Option<Self> {
+impl InitActor<UnboundedReceiver<ActorMsg<Value, MyActorShutdown>>> for MyFirstTestActor {
+    async fn init_actor(receiver: UnboundedReceiver<ActorMsg<Value, MyActorShutdown>>) -> Option<Self> {
         Some(MyFirstTestActor {
             some_data: true,
             some_other_data: 0,
@@ -55,132 +47,76 @@ impl InitActor<UnboundedReceiver<ActorMsg<Instant>>> for MyFirstTestActor {
 }
 
 pub async fn test_function() {
-    let (_sender, receiver) = mpsc::unbounded_channel();
+    let (sender, receiver) = actor_channel::<Value, MyActorShutdown>();
 
-    let _ = run_actor::<MyFirstTestActor>(receiver).await;
+    sender.send(Value::MyGreetings("Hello".to_string()));
+    sender.send(Value::U32(100));
+    sender.send(Value::U64(200));
 
-    // actor.infinite_loop().await;
+
+    // We also can send command from outside
+    // sender.command(MyActorShutdown);
+
+
+    // so sender will not die before actor
+    let _sender = sender;
+
+    // actor is already spawned
+    // join_handle is a result of tokio::spawn
+    let join_handle = run_actor::<MyFirstTestActor>(receiver);
+
+
+    // Wait join_handle, so main thread will not be killed
+    // Usually we do not need it
+    let _ = join_handle.await;
 }
-
-/*
-impl Actor for FirstTestActor {
-    type ShutDown = MyActorShutdown;
-
-    async fn infinite_loop(&mut self) -> Result<Break, Self::ShutDown> {
-        loop {
-            select! {
-                msg = Listener::next_msg(&mut self.interval) => {
-                    if let Some(msg) = msg {
-                        match msg {
-                            ActorMsg::Msg(msg) => {
-                                let command: ActorCommand<Self::ShutDown> = <Self as AsyncHandle<_>>::async_handle(self, msg).await.into();
-                                if let Err(err) = command.0 {
-                                    let _ = err?;
-                                    break;
-                                } else {
-                                    continue;
-                                }
-                            }
-                            ActorMsg::Shutdown(shutdown) => {
-                                return Err(Self::ShutDown::from(shutdown));
-                            }
-                        }
-                    } else {
-                        break;
-                    }
-                }
-                msg = Listener::next_msg(&mut self.interval2) => {
-                    if let Some(msg) = msg {
-                        match msg {
-                            ActorMsg::Msg(msg) => {
-                                let command: ActorCommand<Self::ShutDown> = <Self as AsyncHandle<_>>::async_handle(self, msg).await.into();
-                                if let Err(err) = command.0 {
-                                    let _ = err?;
-                                    break;
-                                } else {
-                                    continue;
-                                }
-                            }
-                            ActorMsg::Shutdown(shutdown) => {
-                                return Err(Self::ShutDown::from(shutdown));
-                            }
-                        }
-                    } else {
-                        break;
-                    }
-                }
-                msg = Listener::next_msg(&mut self.channel) => {
-                    if let Some(msg) = msg {
-                        match msg {
-                            ActorMsg::Msg(msg) => {
-                                let command: ActorCommand<Self::ShutDown> = <Self as AsyncHandle<_>>::async_handle(self, msg).await.into();
-                                if let Err(err) = command.0 {
-                                    let _ = err?;
-                                    break;
-                                } else {
-                                    continue;
-                                }
-                            }
-                            ActorMsg::Shutdown(shutdown) => {
-                                return Err(Self::ShutDown::from(shutdown));
-                            }
-                        }
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-        Ok(Break)
-    }
-}
-*/
 
 impl AsyncHandle<u32> for MyFirstTestActor {
     async fn async_handle(&mut self, value: u32) -> Continue {
-        // some code
         self.some_data = !self.some_data;
+        println!("New msg: {value}");
         let _ = value;
     }
 }
 
 impl Handle<u64> for MyFirstTestActor {
-    fn handle(&mut self, value: u64) -> Kill<MyActorShutdown> {
-        let _ = value;
-        Kill(MyActorShutdown)
+    fn handle(&mut self, value: u64) -> Option<Break> {
+        println!("New msg: {value}");
+        None
     }
 }
 
 impl AsyncHandle<String> for MyFirstTestActor {
     async fn async_handle(&mut self, value: String) -> Option<Break> {
-        let _ = value;
+        println!("New msg: {value}");
         None
     }
 }
 
 impl AsyncHandle<Instant> for MyFirstTestActor {
-    async fn async_handle(&mut self, _value: Instant) -> Option<Kill<MyActorShutdown>> {
+    async fn async_handle(&mut self, _value: Instant) -> Option<Cmd<MyActorShutdown>> {
         self.some_other_data += 1;
-        println!("New msg, couner: {}", self.some_other_data);
-
+        println!("New msg, counter: {}", self.some_other_data);
         if self.some_other_data > 5 {
-            Some(Kill(MyActorShutdown))
+            Some(Cmd(MyActorShutdown))
         } else {
             None
         }
     }
 }
 
-impl StopActor<MyActorShutdown> for MyFirstTestActor {
-    async fn stop_actor(self, shut_down: MyActorShutdown) {
+impl ApplyCmd<MyActorShutdown> for MyFirstTestActor {
+    async fn apply_cmd(self, shut_down: MyActorShutdown) -> Option<Self> {
         println!("Called Shutdown");
         let _ = shut_down;
+        None
     }
 }
 
-impl StopActor<Break> for MyFirstTestActor {
-    async fn stop_actor(self, shut_down: Break) {
+impl ApplyCmd<Break> for MyFirstTestActor {
+    async fn apply_cmd(self, shut_down: Break) -> Option<Self> {
         println!("Called Break");
         let _ = shut_down;
+        None
     }
 }

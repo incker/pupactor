@@ -4,17 +4,17 @@ pub use actor_ref::*;
 pub use handle::*;
 pub use init_actor::*;
 pub use listener::*;
-pub use stop_actor::*;
+pub use apply_cmd::*;
 
 mod actor;
 mod actor_command;
 mod actor_ref;
 mod handle;
 mod init_actor;
+mod apply_cmd;
 mod listener;
-mod stop_actor;
 
 // macros
-pub use pupactor_macro::{ActorMsgHandle, ActorShutdown, Pupactor};
+pub use pupactor_macro::{ActorMsgHandle, ActorCmd, Pupactor};
 
 pub type Reply<T> = tokio::sync::oneshot::Sender<T>;

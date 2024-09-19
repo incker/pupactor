@@ -1,5 +1,4 @@
 #![allow(refining_impl_trait)]
-// #![allow(refining_impl_trait_internal)]
 
 use crate::first_test_actor::test_function;
 

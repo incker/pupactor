@@ -7,44 +7,44 @@ use tokio::sync::mpsc::error::SendError;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, WeakUnboundedSender};
 use tokio::sync::{mpsc, oneshot};
 
-pub fn actor_channel<Msg, Shutdown>() -> (
-    ActorRef<Msg, Shutdown>,
-    UnboundedReceiver<ActorMsg<Msg, Shutdown>>,
+pub fn actor_channel<Msg, Command>() -> (
+    ActorRef<Msg, Command>,
+    UnboundedReceiver<ActorMsg<Msg, Command>>,
 ) {
     let (sender, receiver) = mpsc::unbounded_channel();
     (ActorRef::new(sender), receiver)
 }
 
-pub struct ActorRef<Msg, Shutdown = Infallible> {
-    inner: UnboundedSender<ActorMsg<Msg, Shutdown>>,
+pub struct ActorRef<Msg, Command = Infallible> {
+    inner: UnboundedSender<ActorMsg<Msg, Command>>,
 }
 
-impl<Msg, Shutdown> Clone for ActorRef<Msg, Shutdown> {
+impl<Msg, Command> Clone for ActorRef<Msg, Command> {
     fn clone(&self) -> Self {
         Self::new(self.inner.clone())
     }
 }
 
-pub enum ActorMsg<Msg, Shutdown = Infallible> {
+pub enum ActorMsg<Msg, Command = Infallible> {
     Msg(Msg),
-    Shutdown(Shutdown),
+    Cmd(Command),
 }
 
-impl<Msg, Shutdown> From<Msg> for ActorMsg<Msg, Shutdown> {
+impl<Msg, Command> From<Msg> for ActorMsg<Msg, Command> {
     #[inline(always)]
     fn from(msg: Msg) -> Self {
         ActorMsg::Msg(msg)
     }
 }
 
-impl<Msg, Shutdown> ActorRef<Msg, Shutdown> {
+impl<Msg, Command> ActorRef<Msg, Command> {
     #[inline]
-    pub fn new(inner: UnboundedSender<ActorMsg<Msg, Shutdown>>) -> Self {
+    pub fn new(inner: UnboundedSender<ActorMsg<Msg, Command>>) -> Self {
         Self { inner }
     }
 
     #[inline]
-    pub fn try_send<M>(&self, msg: M) -> Result<(), SendError<ActorMsg<Msg, Shutdown>>>
+    pub fn try_send<M>(&self, msg: M) -> Result<(), SendError<ActorMsg<Msg, Command>>>
     where
         Msg: From<M>,
     {
@@ -76,26 +76,26 @@ impl<Msg, Shutdown> ActorRef<Msg, Shutdown> {
         PendingRespOrDefault(self.ask())
     }
 
-    pub fn try_shutdown<Resp>(
+    pub fn try_command<Resp>(
         &self,
-        msg: Shutdown,
-    ) -> Result<(), SendError<ActorMsg<Msg, Shutdown>>>
+        msg: Command,
+    ) -> Result<(), SendError<ActorMsg<Msg, Command>>>
     where
         Msg: From<oneshot::Sender<Resp>>,
         Resp: Default,
     {
-        self.inner.send(ActorMsg::Shutdown(msg))
+        self.inner.send(ActorMsg::Cmd(msg))
     }
 
-    pub fn shutdown<IntoShutdown>(&self, shutdown: IntoShutdown)
+    pub fn command<IntoCommand>(&self, command: IntoCommand)
     where
-        Shutdown: From<IntoShutdown>,
+        Command: From<IntoCommand>,
     {
-        let _ = self.inner.send(ActorMsg::Shutdown(shutdown.into()));
+        let _ = self.inner.send(ActorMsg::Cmd(command.into()));
     }
 
     #[inline]
-    pub fn downgrade(&self) -> WeakActorRef<Msg, Shutdown> {
+    pub fn downgrade(&self) -> WeakActorRef<Msg, Command> {
         WeakActorRef {
             inner: self.inner.downgrade(),
         }
@@ -146,13 +146,13 @@ where
     }
 }
 
-pub struct WeakActorRef<Msg, Shutdown = Infallible> {
-    inner: WeakUnboundedSender<ActorMsg<Msg, Shutdown>>,
+pub struct WeakActorRef<Msg, Command = Infallible> {
+    inner: WeakUnboundedSender<ActorMsg<Msg, Command>>,
 }
 
-impl<Msg, Shutdown> WeakActorRef<Msg, Shutdown> {
+impl<Msg, Command> WeakActorRef<Msg, Command> {
     #[inline]
-    pub fn upgrade(&self) -> Option<ActorRef<Msg, Shutdown>> {
+    pub fn upgrade(&self) -> Option<ActorRef<Msg, Command>> {
         self.inner.upgrade().map(ActorRef::new)
     }
 

@@ -1,0 +1,1 @@
+Macros for pupactor crate. For other usage these macros are useless
