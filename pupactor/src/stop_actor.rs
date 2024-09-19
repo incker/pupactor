@@ -2,31 +2,33 @@ use crate::Actor;
 use std::convert::Infallible;
 use std::future::Future;
 
-pub trait StopActor<ShutDown>
+pub trait ApplyCmd<Cmd>
 where
     Self: Actor,
 {
-    fn stop_actor(self, shut_down: ShutDown) -> impl Future<Output=()> + Send;
+    fn apply_cmd(self, cmd: Cmd) -> impl Future<Output=Option<Self>> + Send;
 }
 
-pub trait WithStopActor<Act: Actor> {
-    fn stop_actor(self, actor: Act) -> impl Future<Output=()> + Send;
+pub trait WithApplyCmd<Act: Actor> {
+    fn apply_cmd(self, actor: Act) -> impl Future<Output=Option<Act>> + Send;
 }
 
-impl<Act, ShutDown> WithStopActor<Act> for ShutDown
+impl<Act, Cmd> WithApplyCmd<Act> for Cmd
 where
-    Act: Actor + StopActor<ShutDown>,
+    Act: Actor + ApplyCmd<Cmd>,
 {
-    fn stop_actor(self, actor: Act) -> impl Future<Output=()> + Send {
-        actor.stop_actor(self)
+    #[inline(always)]
+    fn apply_cmd(self, actor: Act) -> impl Future<Output=Option<Act>> + Send {
+        actor.apply_cmd(self)
     }
 }
 
-impl<Act> StopActor<Infallible> for Act
+impl<Act> ApplyCmd<Infallible> for Act
 where
     Act: Actor + Send,
 {
-    async fn stop_actor(self, _: Infallible) {
-        unreachable!()
+    #[inline(always)]
+    async fn apply_cmd(self, _: Infallible) -> Option<Act> {
+        None
     }
 }

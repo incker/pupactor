@@ -55,7 +55,7 @@ pub fn actor_msg_handle_derive(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         impl pupactor::AsyncHandle<#enum_name> for #actor_ident {
             #[inline(always)]
-            async fn async_handle(&mut self, value: #enum_name) -> pupactor::ActorCommand<Self::ShutDown> {
+            async fn async_handle(&mut self, value: #enum_name) -> pupactor::ActorCmdRes<Self::ShutDown> {
                 match value {
                     #(#variants)*
                 }
@@ -122,7 +122,7 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
     let match_msg_inside_loop = quote! {
         match msg {
             pupactor::ActorMsg::Msg(msg) => {
-                let command: pupactor::ActorCommand<Self::ShutDown> = <Self as pupactor::AsyncHandle<_>>::async_handle(self, msg).await.into();
+                let command: pupactor::ActorCmdRes<Self::ShutDown> = <Self as pupactor::AsyncHandle<_>>::async_handle(self, msg).await.into();
                 if let Err(err) = command.0 {
                     let _ = err?;
                     break;

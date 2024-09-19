@@ -1,4 +1,4 @@
-use crate::{Actor, ActorCommand};
+use crate::{Actor, ActorCmdRes};
 use std::convert::Infallible;
 use std::future::Future;
 pub trait AsyncHandle<T>
@@ -9,14 +9,14 @@ where
     fn async_handle(
         &mut self,
         value: T,
-    ) -> impl Future<Output=impl Into<ActorCommand<Self::ShutDown>>> + Send;
+    ) -> impl Future<Output=impl Into<ActorCmdRes<Self::ShutDown>>> + Send;
 }
 
 pub trait Handle<T>
 where
     Self: Actor,
 {
-    fn handle(&mut self, value: T) -> impl Into<ActorCommand<Self::ShutDown>>;
+    fn handle(&mut self, value: T) -> impl Into<ActorCmdRes<Self::ShutDown>>;
 }
 
 impl<T, Act> AsyncHandle<T> for Act
@@ -28,7 +28,7 @@ where
     fn async_handle(
         &mut self,
         value: T,
-    ) -> impl Future<Output=impl Into<ActorCommand<Self::ShutDown>>> + Send {
+    ) -> impl Future<Output=impl Into<ActorCmdRes<Self::ShutDown>>> + Send {
         async { self.handle(value) }
     }
 }
@@ -41,7 +41,7 @@ where
     fn with_handle(
         self,
         actor: &mut Act,
-    ) -> impl Future<Output=impl Into<ActorCommand<Act::ShutDown>>> + Send;
+    ) -> impl Future<Output=impl Into<ActorCmdRes<Act::ShutDown>>> + Send;
 }
 
 impl<Act, T> WithHandle<Act> for T
@@ -53,7 +53,7 @@ where
     fn with_handle(
         self,
         actor: &mut Act,
-    ) -> impl Future<Output=impl Into<ActorCommand<Act::ShutDown>>> + Send {
+    ) -> impl Future<Output=impl Into<ActorCmdRes<Act::ShutDown>>> + Send {
         actor.async_handle(self)
     }
 }
@@ -64,7 +64,7 @@ where
     Self: Actor + Send + 'static,
 {
     #[inline(always)]
-    fn handle(&mut self, _: Infallible) -> impl Into<ActorCommand<Self::ShutDown>> {
+    fn handle(&mut self, _: Infallible) -> impl Into<ActorCmdRes<Self::ShutDown>> {
         // unreachable!()
     }
 }

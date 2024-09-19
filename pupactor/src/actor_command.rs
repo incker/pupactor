@@ -2,56 +2,56 @@ pub struct Break;
 
 pub type Continue = ();
 
-pub struct Kill<T = ()>(pub T);
+pub struct Cmd<T = ()>(pub T);
 
-pub struct ActorCommand<ShutDown>(pub Result<Continue, Result<Break, ShutDown>>);
+pub struct ActorCmdRes<C>(pub Result<Continue, Result<Break, C>>);
 
-impl<ShutDown> From<()> for ActorCommand<ShutDown> {
+impl<C> From<()> for ActorCmdRes<C> {
     #[inline(always)]
     fn from(_: ()) -> Self {
-        ActorCommand(Ok(()))
+        ActorCmdRes(Ok(()))
     }
 }
 
-impl<ShutDown> From<Break> for ActorCommand<ShutDown> {
+impl<C> From<Break> for ActorCmdRes<C> {
     #[inline(always)]
     fn from(_: Break) -> Self {
-        ActorCommand(Err(Ok(Break)))
+        ActorCmdRes(Err(Ok(Break)))
     }
 }
 
-impl<ShutDown, K> From<Kill<K>> for ActorCommand<ShutDown>
+impl<C, K> From<Cmd<K>> for ActorCmdRes<C>
 where
-    ShutDown: From<K>,
+    C: From<K>,
 {
     #[inline(always)]
-    fn from(Kill(k): Kill<K>) -> Self {
-        let shutdown: ShutDown = k.into();
-        ActorCommand(Err(Err(shutdown)))
+    fn from(Cmd(k): Cmd<K>) -> Self {
+        let cmd: C = k.into();
+        ActorCmdRes(Err(Err(cmd)))
     }
 }
 
-impl<ShutDown, Cmd> From<Option<Cmd>> for ActorCommand<ShutDown>
+impl<C, InnerCmd> From<Option<InnerCmd>> for ActorCmdRes<C>
 where
-    Cmd: Into<ActorCommand<ShutDown>>,
+    InnerCmd: Into<ActorCmdRes<C>>,
 {
     #[inline(always)]
-    fn from(opt: Option<Cmd>) -> Self {
+    fn from(opt: Option<InnerCmd>) -> Self {
         if let Some(command) = opt {
             command.into()
         } else {
-            ActorCommand(Ok(()))
+            ActorCmdRes(Ok(()))
         }
     }
 }
 
-impl<ShutDown, Cmd1, Cmd2> From<Result<Cmd1, Cmd2>> for ActorCommand<ShutDown>
+impl<C, InnerCmd1, InnerCmd2> From<Result<InnerCmd1, InnerCmd2>> for ActorCmdRes<C>
 where
-    Cmd1: Into<ActorCommand<ShutDown>>,
-    Cmd2: Into<ActorCommand<ShutDown>>,
+    InnerCmd1: Into<ActorCmdRes<C>>,
+    InnerCmd2: Into<ActorCmdRes<C>>,
 {
     #[inline(always)]
-    fn from(resp: Result<Cmd1, Cmd2>) -> Self {
+    fn from(resp: Result<InnerCmd1, InnerCmd2>) -> Self {
         match resp {
             Ok(command) => command.into(),
             Err(command) => command.into(),
