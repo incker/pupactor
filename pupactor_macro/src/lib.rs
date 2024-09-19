@@ -91,13 +91,14 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
                 });
         }
     }
-    let shutdown_ident = shutdown_ident.expect("Expected an `actor(shutdown = \"...\")` attribute");
 
-    // todo
-    // let shutdown_ident = shutdown_ident.unwrap_or_else(|| {
-    //     let lit_str: LitStr = "Infallible".parse().unwrap();  // this parses `"EarlGrey"`
-    //     shutdown_ident = Some(Ident::new(&lit_str.value(), lit_str.span()));
-    // });
+    // Actor Shutdown msg. By default, is Infallible
+    let shutdown_ident = match shutdown_ident {
+        Some(shutdown_ident) => {
+            quote! { #shutdown_ident }
+        }
+        None => quote! { std::convert::Infallible }
+    };
 
     // Находим все поля с атрибутом #[listener]
     let listeners = if let Data::Struct(data_struct) = input.data {
@@ -117,52 +118,54 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
         panic!("`Pupactor` can only be derived for structs");
     };
 
-    /*
-        // Извлечение вариантов enum и генерация соответствующих match-веток
-    let variants = if let Data::Enum(data_enum) = input.data {
-        data_enum.variants.iter().map(|variant| {
-            let variant_name = &variant.ident;
-            match &variant.fields {
-                Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-                    let field_type = &fields.unnamed[0].ty;
-                    quote! {
-                        #enum_name::#variant_name(val) => AsyncHandle::async_handle(self, val).await.into(),
-                    }
-                }
-                _ => quote! {
-                    _ => panic!("Unsupported enum variant or structure"),
-                },
-            }
-        }).collect::<Vec<_>>()
-    } else {
-        panic!("MyMacro
-     */
-
-    // Генерация кода для каждого listener
-    let listener_branches = listeners.iter().map(|field_name| {
-        quote! {
-            msg = Listener::next_msg(&mut self.#field_name) => {
-                if let Some(msg) = msg {
-                    match msg {
-                        pupactor::ActorMsg::Msg(msg) => {
-                            let command: pupactor::ActorCommand<Self::ShutDown> = <Self as pupactor::AsyncHandle<_>>::async_handle(self, msg).await.into();
-                            if let Err(err) = command.0 {
-                                let _ = err?;
-                                break;
-                            } else {
-                                continue;
-                            }
-                        }
-                        pupactor::ActorMsg::Shutdown(shutdown) => {
-                            return Err(Self::ShutDown::from(shutdown));
-                        }
-                    }
-                } else {
+    // Code that handle matches and handle msg
+    let match_msg_inside_loop = quote! {
+        match msg {
+            pupactor::ActorMsg::Msg(msg) => {
+                let command: pupactor::ActorCommand<Self::ShutDown> = <Self as pupactor::AsyncHandle<_>>::async_handle(self, msg).await.into();
+                if let Err(err) = command.0 {
+                    let _ = err?;
                     break;
+                } else {
+                    continue;
+                }
+            }
+            pupactor::ActorMsg::Shutdown(shutdown) => {
+                return Err(Self::ShutDown::from(shutdown));
+            }
+        }
+    };
+
+    let internal_loop = match listeners.len() {
+        0 => quote! { },
+        1 => {
+            quote! {
+                while let Some(msg) =  self.interval.next_msg().await {
+                    #match_msg_inside_loop
                 }
             }
         }
-    });
+        _ => {
+            let listener_branches = listeners.iter().map(|field_name| {
+                quote! {
+                    msg = Listener::next_msg(&mut self.#field_name) => {
+                        if let Some(msg) = msg {
+                            #match_msg_inside_loop
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            });
+            quote! {
+                loop {
+                    tokio::select! {
+                        #(#listener_branches)*
+                    }
+                }
+            }
+        }
+    };
 
     // Генерация полного кода
     let expanded = quote! {
@@ -170,11 +173,7 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
             type ShutDown = #shutdown_ident;
 
             async fn infinite_loop(&mut self) -> Result<pupactor::Break, Self::ShutDown> {
-                loop {
-                    tokio::select! {
-                        #(#listener_branches)*
-                    }
-                }
+                #internal_loop
                 Ok(pupactor::Break)
             }
         }
