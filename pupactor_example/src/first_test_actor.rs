@@ -1,5 +1,5 @@
 use pupactor::{
-    run_actor, ActorMsg, AsyncHandle, Break, Continue, Handle, InitActor, Kill, Listener, StopActor,
+    run_actor, ActorMsg, AsyncHandle, Break, Continue, Handle, InitActor, Cmd, Listener, ApplyCmd,
 };
 use pupactor::{ActorMsgHandle, ActorShutdown, Pupactor};
 use std::time::Instant;
@@ -145,9 +145,9 @@ impl AsyncHandle<u32> for MyFirstTestActor {
 }
 
 impl Handle<u64> for MyFirstTestActor {
-    fn handle(&mut self, value: u64) -> Kill<MyActorShutdown> {
+    fn handle(&mut self, value: u64) -> Cmd<MyActorShutdown> {
         let _ = value;
-        Kill(MyActorShutdown)
+        Cmd(MyActorShutdown)
     }
 }
 
@@ -159,28 +159,30 @@ impl AsyncHandle<String> for MyFirstTestActor {
 }
 
 impl AsyncHandle<Instant> for MyFirstTestActor {
-    async fn async_handle(&mut self, _value: Instant) -> Option<Kill<MyActorShutdown>> {
+    async fn async_handle(&mut self, _value: Instant) -> Option<Cmd<MyActorShutdown>> {
         self.some_other_data += 1;
         println!("New msg, couner: {}", self.some_other_data);
 
         if self.some_other_data > 5 {
-            Some(Kill(MyActorShutdown))
+            Some(Cmd(MyActorShutdown))
         } else {
             None
         }
     }
 }
 
-impl StopActor<MyActorShutdown> for MyFirstTestActor {
-    async fn stop_actor(self, shut_down: MyActorShutdown) {
+impl ApplyCmd<MyActorShutdown> for MyFirstTestActor {
+    async fn change_state(self, shut_down: MyActorShutdown) -> Option<Self> {
         println!("Called Shutdown");
         let _ = shut_down;
+        None
     }
 }
 
-impl StopActor<Break> for MyFirstTestActor {
-    async fn stop_actor(self, shut_down: Break) {
+impl ApplyCmd<Break> for MyFirstTestActor {
+    async fn change_state(self, shut_down: Break) -> Option<Self> {
         println!("Called Break");
         let _ = shut_down;
+        None
     }
 }

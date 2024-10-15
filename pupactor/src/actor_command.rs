@@ -2,41 +2,41 @@ pub struct Break;
 
 pub type Continue = ();
 
-pub struct Kill<T = ()>(pub T);
+pub struct Cmd<T = ()>(pub T);
 
-pub struct ActorCommand<ShutDown>(pub Result<Continue, Result<Break, ShutDown>>);
+pub struct ActorCommand<Command>(pub Result<Continue, Result<Break, Command>>);
 
-impl<ShutDown> From<()> for ActorCommand<ShutDown> {
+impl<Command> From<()> for ActorCommand<Command> {
     #[inline(always)]
     fn from(_: ()) -> Self {
         ActorCommand(Ok(()))
     }
 }
 
-impl<ShutDown> From<Break> for ActorCommand<ShutDown> {
+impl<Command> From<Break> for ActorCommand<Command> {
     #[inline(always)]
     fn from(_: Break) -> Self {
         ActorCommand(Err(Ok(Break)))
     }
 }
 
-impl<ShutDown, K> From<Kill<K>> for ActorCommand<ShutDown>
+impl<Command, C> From<Cmd<C>> for ActorCommand<Command>
 where
-    ShutDown: From<K>,
+    Command: From<C>,
 {
     #[inline(always)]
-    fn from(Kill(k): Kill<K>) -> Self {
-        let shutdown: ShutDown = k.into();
+    fn from(Cmd(k): Cmd<C>) -> Self {
+        let shutdown: Command = k.into();
         ActorCommand(Err(Err(shutdown)))
     }
 }
 
-impl<ShutDown, Cmd> From<Option<Cmd>> for ActorCommand<ShutDown>
+impl<Command, C> From<Option<C>> for ActorCommand<Command>
 where
-    Cmd: Into<ActorCommand<ShutDown>>,
+    C: Into<ActorCommand<Command>>,
 {
     #[inline(always)]
-    fn from(opt: Option<Cmd>) -> Self {
+    fn from(opt: Option<C>) -> Self {
         if let Some(command) = opt {
             command.into()
         } else {
@@ -45,13 +45,13 @@ where
     }
 }
 
-impl<ShutDown, Cmd1, Cmd2> From<Result<Cmd1, Cmd2>> for ActorCommand<ShutDown>
+impl<Command, C1, C2> From<Result<C1, C2>> for ActorCommand<Command>
 where
-    Cmd1: Into<ActorCommand<ShutDown>>,
-    Cmd2: Into<ActorCommand<ShutDown>>,
+    C1: Into<ActorCommand<Command>>,
+    C2: Into<ActorCommand<Command>>,
 {
     #[inline(always)]
-    fn from(resp: Result<Cmd1, Cmd2>) -> Self {
+    fn from(resp: Result<C1, C2>) -> Self {
         match resp {
             Ok(command) => command.into(),
             Err(command) => command.into(),

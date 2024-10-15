@@ -55,7 +55,7 @@ pub fn actor_msg_handle_derive(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         impl pupactor::AsyncHandle<#enum_name> for #actor_ident {
             #[inline(always)]
-            async fn async_handle(&mut self, value: #enum_name) -> pupactor::ActorCommand<Self::ShutDown> {
+            async fn async_handle(&mut self, value: #enum_name) -> pupactor::ActorCommand<Self::Cmd> {
                 match value {
                     #(#variants)*
                 }
@@ -71,7 +71,7 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let struct_name = input.ident;
 
-    // Найдем атрибут actor, чтобы получить тип ShutDown
+    // Найдем атрибут actor, чтобы получить тип Cmd
     let mut shutdown_ident = None;
     for attr in input.attrs {
         if attr.path().is_ident("actor") {
@@ -122,7 +122,7 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
     let match_msg_inside_loop = quote! {
         match msg {
             pupactor::ActorMsg::Msg(msg) => {
-                let command: pupactor::ActorCommand<Self::ShutDown> = <Self as pupactor::AsyncHandle<_>>::async_handle(self, msg).await.into();
+                let command: pupactor::ActorCommand<Self::Cmd> = <Self as pupactor::AsyncHandle<_>>::async_handle(self, msg).await.into();
                 if let Err(err) = command.0 {
                     let _ = err?;
                     break;
@@ -131,7 +131,7 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
                 }
             }
             pupactor::ActorMsg::Shutdown(shutdown) => {
-                return Err(Self::ShutDown::from(shutdown));
+                return Err(Self::Cmd::from(shutdown));
             }
         }
     };
@@ -170,9 +170,10 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
     // Генерация полного кода
     let expanded = quote! {
         impl pupactor::Actor for #struct_name {
-            type ShutDown = #shutdown_ident;
+            type States = #struct_name;
+            type Cmd = #shutdown_ident;
 
-            async fn infinite_loop(&mut self) -> Result<pupactor::Break, Self::ShutDown> {
+            async fn infinite_loop(&mut self) -> Result<pupactor::Break, Self::Cmd> {
                 #internal_loop
                 Ok(pupactor::Break)
             }
