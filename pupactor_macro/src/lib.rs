@@ -139,8 +139,9 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
     let internal_loop = match listeners.len() {
         0 => quote! { },
         1 => {
+            let field_name = listeners.first().unwrap();
             quote! {
-                while let Some(msg) =  self.interval.next_msg().await {
+                while let Some(msg) = Listener::next_msg(&mut self.#field_name).await {
                     #match_msg_inside_loop
                 }
             }
