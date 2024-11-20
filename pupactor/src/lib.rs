@@ -16,3 +16,5 @@ mod stop_actor;
 
 // macros
 pub use pupactor_macro::{ActorMsgHandle, ActorShutdown, Pupactor};
+
+pub type Reply<T> = tokio::sync::oneshot::Sender<T>;

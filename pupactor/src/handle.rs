@@ -25,11 +25,11 @@ where
     T: Send + 'static,
 {
     #[inline(always)]
-    fn async_handle(
+    async fn async_handle(
         &mut self,
         value: T,
-    ) -> impl Future<Output=impl Into<ActorCommand<Self::ShutDown>>> + Send {
-        async { self.handle(value) }
+    ) -> impl Into<ActorCommand<Self::ShutDown>> {
+        self.handle(value)
     }
 }
 
