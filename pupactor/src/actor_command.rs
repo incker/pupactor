@@ -1,3 +1,5 @@
+use tokio::sync::{broadcast, mpsc, watch};
+
 pub struct Break;
 
 pub type Continue = ();
@@ -56,5 +58,26 @@ where
             Ok(command) => command.into(),
             Err(command) => command.into(),
         }
+    }
+}
+
+impl<T> From<mpsc::error::SendError<T>> for Break {
+    #[inline]
+    fn from(_: mpsc::error::SendError<T>) -> Self {
+        Break
+    }
+}
+
+impl<T> From<broadcast::error::SendError<T>> for Break {
+    #[inline]
+    fn from(_: broadcast::error::SendError<T>) -> Self {
+        Break
+    }
+}
+
+impl<T> From<watch::error::SendError<T>> for Break {
+    #[inline]
+    fn from(_: watch::error::SendError<T>) -> Self {
+        Break
     }
 }
