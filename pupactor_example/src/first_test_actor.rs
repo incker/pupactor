@@ -20,7 +20,6 @@ pub enum Value {
 #[derive(ActorCmd)]
 pub struct MyActorShutdown;
 
-
 #[derive(Pupactor)]
 #[actor(cmd = "MyActorShutdown")]
 struct MyFirstTestActor {

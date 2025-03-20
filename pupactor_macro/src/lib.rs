@@ -7,8 +7,9 @@ pub fn actor_msg_handle_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let enum_name = input.ident; // enum's name
 
+    let mut actor_idents = Vec::new();
+
     // Extract name from attr #[actor(FirstTestActor)]
-    let mut actor_ident = None;
     for attr in input.attrs {
         if attr.path().is_ident("actor") {
             attr.parse_nested_meta(|meta| {
@@ -16,7 +17,7 @@ pub fn actor_msg_handle_derive(input: TokenStream) -> TokenStream {
                     // this parses the `kind`
                     let value = meta.value()?; // this parses the `=`
                     let lit_str: LitStr = value.parse()?; // this parses `"EarlGrey"`
-                    actor_ident = Some(Ident::new(&lit_str.value(), lit_str.span()));
+                    actor_idents.push(Ident::new(&lit_str.value(), lit_str.span()));
                     Ok(())
                 } else {
                     Err(meta.error("no kind attribute"))
@@ -28,41 +29,46 @@ pub fn actor_msg_handle_derive(input: TokenStream) -> TokenStream {
         }
     }
 
-    let actor_ident = actor_ident.expect("Expected actor name in #[actor(...)] attribute");
+    let expanded_list: Vec<_> = actor_idents
+        .into_iter()
+        .map(|actor_ident| {
+            // Extract enum variants and generation match case
+            let variants = if let Data::Enum(data_enum) = &input.data {
+                data_enum.variants.iter().map(|variant| {
+                    let variant_name = &variant.ident;
+                    match &variant.fields {
+                        Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+                            // let field_type = &fields.unnamed[0].ty;
+                            quote! {
+                                #enum_name::#variant_name(val) => pupactor::AsyncHandle::async_handle(self, val).await.into(),
+                            }
+                        }
+                        _ => quote! {
+                            _ => panic!("Unsupported enum variant or structure"),
+                        },
+                    }
+                }).collect::<Vec<_>>()
+            } else {
+                panic!("ActorMsgHandle can only be derived for enums");
+            };
 
-    // Extract enum variants and generation match case
-    let variants = if let Data::Enum(data_enum) = input.data {
-        data_enum.variants.iter().map(|variant| {
-            let variant_name = &variant.ident;
-            match &variant.fields {
-                Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-                    // let field_type = &fields.unnamed[0].ty;
-                    quote! {
-                        #enum_name::#variant_name(val) => pupactor::AsyncHandle::async_handle(self, val).await.into(),
+            // Code generation
+            quote! {
+                impl pupactor::AsyncHandle<#enum_name> for #actor_ident {
+                    #[inline(always)]
+                    async fn async_handle(&mut self, value: #enum_name) -> pupactor::ActorCmdRes<Self::Cmd> {
+                        match value {
+                            #(#variants)*
+                        }
                     }
                 }
-                _ => quote! {
-                    _ => panic!("Unsupported enum variant or structure"),
-                },
             }
-        }).collect::<Vec<_>>()
-    } else {
-        panic!("ActorMsgHandle can only be derived for enums");
-    };
+        })
+        .collect();
 
-    // Code generation
-    let expanded = quote! {
-        impl pupactor::AsyncHandle<#enum_name> for #actor_ident {
-            #[inline(always)]
-            async fn async_handle(&mut self, value: #enum_name) -> pupactor::ActorCmdRes<Self::Cmd> {
-                match value {
-                    #(#variants)*
-                }
-            }
-        }
-    };
-
-    TokenStream::from(expanded)
+    TokenStream::from(quote! {
+        #(#expanded_list)*
+    })
 }
 
 #[proc_macro_derive(Pupactor, attributes(actor, listener))]
