@@ -1,7 +1,7 @@
 [package]
 name = "pupactor_example"
 version = "0.1.1"
-edition = "2021"
+edition = "2024"
 description = "Examples for pupactor use"
 license = "MIT OR Apache-2.0"
 
