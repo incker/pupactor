@@ -1,6 +1,6 @@
 [package]
 name = "pupactor"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 description = "Pupactor is actor model library built with tokio"
 license = "MIT OR Apache-2.0"
@@ -10,7 +10,7 @@ categories = ["asynchronous"]
 
 [dependencies]
 tokio = { version = "1.40.0", features = ["sync", "rt", "time", "net"] }
-pupactor_macro = { version = "0.2.0", path = "../pupactor_macro" }
+pupactor_macro = { version = "0.2.1", path = "../pupactor_macro" }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)'] }

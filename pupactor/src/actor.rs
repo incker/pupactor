@@ -4,9 +4,9 @@ use tokio::task::JoinHandle;
 
 pub trait Actor
 where
-    Self: Sized + Send + Sync + 'static,
+    Self: Sized + Send + 'static,
 {
-    type Cmd: Send + Sync + 'static;
+    type Cmd: Send + 'static;
 
     fn infinite_loop(&mut self) -> impl Future<Output=Result<Self::Cmd, Break>> + Send;
 }
