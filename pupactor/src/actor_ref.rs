@@ -146,6 +146,7 @@ where
     }
 }
 
+#[derive(Clone)]
 pub struct WeakActorRef<Msg, Command = Infallible> {
     inner: WeakUnboundedSender<ActorMsg<Msg, Command>>,
 }

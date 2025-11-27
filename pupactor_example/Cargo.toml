@@ -6,7 +6,7 @@ description = "Examples for pupactor use"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread"] }
 pupactor = { version = "0.2.0", path = "../pupactor" }
 
 [lints.rust]
