@@ -76,10 +76,7 @@ impl<Msg, Command> ActorRef<Msg, Command> {
         PendingRespOrDefault(self.ask())
     }
 
-    pub fn try_command<Resp>(
-        &self,
-        msg: Command,
-    ) -> Result<(), SendError<ActorMsg<Msg, Command>>>
+    pub fn try_command<Resp>(&self, msg: Command) -> Result<(), SendError<ActorMsg<Msg, Command>>>
     where
         Msg: From<oneshot::Sender<Resp>>,
         Resp: Default,
@@ -146,9 +143,16 @@ where
     }
 }
 
-#[derive(Clone)]
 pub struct WeakActorRef<Msg, Command = Infallible> {
     inner: WeakUnboundedSender<ActorMsg<Msg, Command>>,
+}
+
+impl<Msg, Command> Clone for WeakActorRef<Msg, Command> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
 }
 
 impl<Msg, Command> WeakActorRef<Msg, Command> {
