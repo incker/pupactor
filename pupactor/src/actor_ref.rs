@@ -76,6 +76,16 @@ impl<Msg, Command> ActorRef<Msg, Command> {
         PendingRespOrDefault(self.ask())
     }
 
+    pub fn ask_fn<T, M, F>(&self, f: F) -> oneshot::Receiver<T>
+    where
+        F: FnOnce(oneshot::Sender<T>) -> M,
+        Msg: From<M>,
+    {
+        let (tx, rx) = oneshot::channel::<T>();
+        self.send(f(tx));
+        rx
+    }
+
     pub fn try_command<Resp>(&self, msg: Command) -> Result<(), SendError<ActorMsg<Msg, Command>>>
     where
         Msg: From<oneshot::Sender<Resp>>,
