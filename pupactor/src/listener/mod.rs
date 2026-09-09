@@ -1,7 +1,7 @@
-mod tcp_listener;
-mod sleep;
-mod unbounded_receiver;
 mod interval;
+mod sleep;
+mod tcp_listener;
+mod unbounded_receiver;
 
 pub use sleep::*;
 
@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 pub trait ActorListener<Msg, Command = Infallible> {
-    fn next_msg(&mut self) -> impl Future<Output=Option<ActorMsg<Msg, Command>>>;
+    fn next_msg(&mut self) -> impl Future<Output = Option<ActorMsg<Msg, Command>>>;
 }
 
 pub struct Listener<T, Msg, Command = Infallible>(T, PhantomData<(Msg, Command)>)
@@ -53,4 +53,3 @@ where
         self.0.next_msg().await
     }
 }
-

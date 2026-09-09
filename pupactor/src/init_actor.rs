@@ -6,7 +6,7 @@ where
     Self: Actor + Send + 'static,
     Init: Send + 'static,
 {
-    fn init_actor(init: Init) -> impl Future<Output=Option<Self>> + Send;
+    fn init_actor(init: Init) -> impl Future<Output = Option<Self>> + Send;
 }
 
 /// When Init == Act
@@ -25,7 +25,7 @@ where
     Act: Actor + 'static,
     Self: Send + 'static + Sized,
 {
-    fn init_actor(self) -> impl Future<Output=Option<Act>> + Send;
+    fn init_actor(self) -> impl Future<Output = Option<Act>> + Send;
 }
 
 impl<Act, Init> WithInitActor<Act> for Init
@@ -34,7 +34,7 @@ where
     Init: Send + 'static,
 {
     #[inline(always)]
-    fn init_actor(self) -> impl Future<Output=Option<Act>> + Send {
+    fn init_actor(self) -> impl Future<Output = Option<Act>> + Send {
         <Act as InitActor<Init>>::init_actor(self)
     }
 }

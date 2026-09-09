@@ -1,5 +1,8 @@
-use pupactor::{actor_channel, run_actor, ActorMsg, ApplyCmd, AsyncHandle, Break, Cmd, Continue, Handle, InitActor, Listener};
 use pupactor::{ActorCmd, ActorMsgHandle, Pupactor};
+use pupactor::{
+    ActorMsg, ApplyCmd, AsyncHandle, Break, Cmd, Continue, Handle, InitActor, Listener,
+    actor_channel, run_actor,
+};
 use std::time::Instant;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::Interval;
@@ -34,7 +37,9 @@ struct MyFirstTestActor {
 }
 
 impl InitActor<UnboundedReceiver<ActorMsg<Value, MyActorShutdown>>> for MyFirstTestActor {
-    async fn init_actor(receiver: UnboundedReceiver<ActorMsg<Value, MyActorShutdown>>) -> Option<Self> {
+    async fn init_actor(
+        receiver: UnboundedReceiver<ActorMsg<Value, MyActorShutdown>>,
+    ) -> Option<Self> {
         Some(MyFirstTestActor {
             some_data: true,
             some_other_data: 0,
@@ -52,10 +57,8 @@ pub async fn test_function() {
     sender.send(Value::U32(100));
     sender.send(Value::U64(200));
 
-
     // We also can send command from outside
     // sender.command(MyActorShutdown);
-
 
     // so sender will not die before actor
     let _sender = sender;
@@ -63,7 +66,6 @@ pub async fn test_function() {
     // actor is already spawned
     // join_handle is a result of tokio::spawn
     let join_handle = run_actor::<MyFirstTestActor>(receiver);
-
 
     // Wait join_handle, so main thread will not be killed
     // Usually we do not need it

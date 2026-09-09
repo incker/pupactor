@@ -8,7 +8,7 @@ where
 {
     type Cmd: Send + 'static;
 
-    fn infinite_loop(&mut self) -> impl Future<Output=Result<Self::Cmd, Break>> + Send;
+    fn infinite_loop(&mut self) -> impl Future<Output = Result<Self::Cmd, Break>> + Send;
 }
 
 #[cfg(not(tokio_unstable))]

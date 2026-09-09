@@ -9,7 +9,7 @@ where
     fn async_handle(
         &mut self,
         value: T,
-    ) -> impl Future<Output=impl Into<ActorCmdRes<Self::Cmd>>> + Send;
+    ) -> impl Future<Output = impl Into<ActorCmdRes<Self::Cmd>>> + Send;
 }
 
 pub trait Handle<T>
@@ -25,10 +25,7 @@ where
     T: Send + 'static,
 {
     #[inline(always)]
-    async fn async_handle(
-        &mut self,
-        value: T,
-    ) -> impl Into<ActorCmdRes<Self::Cmd>> {
+    async fn async_handle(&mut self, value: T) -> impl Into<ActorCmdRes<Self::Cmd>> {
         self.handle(value)
     }
 }
@@ -41,7 +38,7 @@ where
     fn with_handle(
         self,
         actor: &mut Act,
-    ) -> impl Future<Output=impl Into<ActorCmdRes<Act::Cmd>>> + Send;
+    ) -> impl Future<Output = impl Into<ActorCmdRes<Act::Cmd>>> + Send;
 }
 
 impl<Act, T> WithHandle<Act> for T
@@ -53,7 +50,7 @@ where
     fn with_handle(
         self,
         actor: &mut Act,
-    ) -> impl Future<Output=impl Into<ActorCmdRes<Act::Cmd>>> + Send {
+    ) -> impl Future<Output = impl Into<ActorCmdRes<Act::Cmd>>> + Send {
         actor.async_handle(self)
     }
 }

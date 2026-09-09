@@ -11,7 +11,7 @@ proc-macro = true
 
 [dependencies]
 quote = "1.0.47"
-syn = {  version = "3.0.3", features = ["full"]}
+syn = {  version = "3.0.5", features = ["full"]}
 
 [lints.rust]
 unsafe_code = "forbid"

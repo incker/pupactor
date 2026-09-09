@@ -6,11 +6,11 @@ pub trait ApplyCmd<Cmd>
 where
     Self: Actor,
 {
-    fn apply_cmd(self, cmd: Cmd) -> impl Future<Output=Option<Self>> + Send;
+    fn apply_cmd(self, cmd: Cmd) -> impl Future<Output = Option<Self>> + Send;
 }
 
 pub trait WithApplyCmd<Act: Actor> {
-    fn apply_cmd(self, actor: Act) -> impl Future<Output=Option<Act>> + Send;
+    fn apply_cmd(self, actor: Act) -> impl Future<Output = Option<Act>> + Send;
 }
 
 impl<Act, Cmd> WithApplyCmd<Act> for Cmd
@@ -18,7 +18,7 @@ where
     Act: Actor + ApplyCmd<Cmd>,
 {
     #[inline(always)]
-    fn apply_cmd(self, actor: Act) -> impl Future<Output=Option<Act>> + Send {
+    fn apply_cmd(self, actor: Act) -> impl Future<Output = Option<Act>> + Send {
         actor.apply_cmd(self)
     }
 }
