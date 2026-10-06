@@ -125,6 +125,9 @@ pub fn actor_msg_handle_derive(input: TokenStream) -> TokenStream {
 pub fn pupactor_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let struct_name = input.ident;
+    let generics = input.generics;
+
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     // Search type `cmd`
     let mut cmd_ident = None;
@@ -132,13 +135,14 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
         if attr.path().is_ident("actor") {
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident("cmd") {
-                    // this parses the `kind`
-                    let value = meta.value()?; // this parses the `=`
-                    let lit_str: LitStr = value.parse()?; // this parses `"EarlGrey"`
+                    // This parses the `cmd` value.
+                    let value = meta.value()?;
+                    let lit_str: LitStr = value.parse()?;
+
                     cmd_ident = Some(Ident::new(&lit_str.value(), lit_str.span()));
                     Ok(())
                 } else {
-                    Err(meta.error("no kind attribute"))
+                    Err(meta.error("no cmd attribute"))
                 }
             })
             .unwrap_or_else(|err| {
@@ -149,9 +153,7 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
 
     // Actor `cmd` msg. By default, is Infallible
     let cmd_ident = match cmd_ident {
-        Some(cmd_ident) => {
-            quote! { #cmd_ident }
-        }
+        Some(cmd_ident) => quote! { #cmd_ident },
         None => quote! { std::convert::Infallible },
     };
 
@@ -173,7 +175,7 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
         panic!("`Pupactor` can only be derived for structs");
     };
 
-    // Code that handle matches and handle msg
+    // Code that handles matches and messages
     let match_msg_inside_loop = quote! {
         match msg {
             pupactor::ActorMsg::Msg(msg) => {
@@ -227,7 +229,9 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
     };
 
     let expanded = quote! {
-        impl pupactor::Actor for #struct_name {
+        impl #impl_generics pupactor::Actor
+            for #struct_name #ty_generics #where_clause
+        {
             type Cmd = #cmd_ident;
 
             async fn infinite_loop(&mut self) -> Result<Self::Cmd, pupactor::Break> {
