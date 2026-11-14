@@ -1,6 +1,7 @@
+
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, Ident, LitStr, parse_macro_input};
+use syn::{Data, DeriveInput, Fields, Ident, LitStr, PathArguments, Type, parse_macro_input};
 
 #[proc_macro_derive(ActorMsgHandle, attributes(actor, actor_boxed))]
 pub fn actor_msg_handle_derive(input: TokenStream) -> TokenStream {
@@ -37,9 +38,9 @@ pub fn actor_msg_handle_derive(input: TokenStream) -> TokenStream {
                 Err(meta.error("unknown actor attribute"))
             }
         })
-        .unwrap_or_else(|err| {
-            panic!("Failed to parse actor attribute: {}", err);
-        });
+            .unwrap_or_else(|err| {
+                panic!("Failed to parse actor attribute: {}", err);
+            });
 
         let ident = kind.unwrap_or_else(|| {
             panic!("`kind` attribute is required");
@@ -135,7 +136,6 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
         if attr.path().is_ident("actor") {
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident("cmd") {
-                    // This parses the `cmd` value.
                     let value = meta.value()?;
                     let lit_str: LitStr = value.parse()?;
 
@@ -145,9 +145,9 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
                     Err(meta.error("no cmd attribute"))
                 }
             })
-            .unwrap_or_else(|err| {
-                panic!("Failed to parse actor attribute: {}", err);
-            });
+                .unwrap_or_else(|err| {
+                    panic!("Failed to parse actor attribute: {}", err);
+                });
         }
     }
 
@@ -163,12 +163,26 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
             .fields
             .iter()
             .filter_map(|field| {
-                let field_name = field.ident.clone();
-                field
-                    .attrs
-                    .iter()
-                    .find(|attr| attr.path().is_ident("listener"))
-                    .map(|_| field_name)
+                let field_name = field.ident.clone()?;
+
+                if !field.attrs.iter().any(|attr| attr.path().is_ident("listener")) {
+                    return None;
+                }
+
+                // Check whether the third generic parameter (Cmd) is omitted.
+                let cmd_is_default = match &field.ty {
+                    Type::Path(type_path) => {
+                        type_path.path.segments.last().is_some_and(|segment| {
+                            matches!(
+                                &segment.arguments,
+                                PathArguments::AngleBracketed(args) if args.args.len() == 2
+                            )
+                        })
+                    }
+                    _ => false,
+                };
+
+                Some((field_name, cmd_is_default))
             })
             .collect::<Vec<_>>()
     } else {
@@ -176,22 +190,39 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
     };
 
     // Code that handles matches and messages
-    let match_msg_inside_loop = quote! {
-        match msg {
-            pupactor::ActorMsg::Msg(msg) => {
-                let cmd: pupactor::ActorCmdRes<Self::Cmd> = <Self as pupactor::AsyncHandle<_>>::async_handle(self, msg).await.into();
-                if let Err(err) = cmd.0 {
-                    if err.is_ok() {
-                        return err;
-                    } else {
-                        break;
-                    }
-                } else {
-                    continue;
+    let match_msg_inside_loop = |cmd_is_default: bool| {
+        let cmd_match = if cmd_is_default {
+            quote! {
+                pupactor::ActorMsg::Cmd(cmd) => match cmd {},
+            }
+        } else {
+            quote! {
+                pupactor::ActorMsg::Cmd(cmd) => {
+                    return Ok(Self::Cmd::from(cmd));
                 }
             }
-            pupactor::ActorMsg::Cmd(cmd) => {
-                return Ok(Self::Cmd::from(cmd));
+        };
+
+        quote! {
+            match msg {
+                pupactor::ActorMsg::Msg(msg) => {
+                    let cmd: pupactor::ActorCmdRes<Self::Cmd> =
+                        <Self as pupactor::AsyncHandle<_>>::async_handle(self, msg)
+                            .await
+                            .into();
+
+                    if let Err(err) = cmd.0 {
+                        if err.is_ok() {
+                            return err;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        continue;
+                    }
+                }
+
+                #cmd_match
             }
         }
     };
@@ -199,15 +230,20 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
     let internal_loop = match listeners.len() {
         0 => quote! {},
         1 => {
-            let field_name = listeners.first().unwrap();
+            let (field_name, cmd_is_default) = listeners.first().unwrap();
+            let match_msg_inside_loop = match_msg_inside_loop(*cmd_is_default);
+
             quote! {
                 while let Some(msg) = Listener::next_msg(&mut self.#field_name).await {
                     #match_msg_inside_loop
                 }
             }
         }
+
         _ => {
-            let listener_branches = listeners.iter().map(|field_name| {
+            let listener_branches = listeners.iter().map(|(field_name, cmd_is_default)| {
+                let match_msg_inside_loop = match_msg_inside_loop(*cmd_is_default);
+
                 quote! {
                     msg = Listener::next_msg(&mut self.#field_name) => {
                         if let Some(msg) = msg {
@@ -218,6 +254,7 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
                     }
                 }
             });
+
             quote! {
                 loop {
                     tokio::select! {
@@ -240,6 +277,7 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
             }
         }
     };
+
     TokenStream::from(expanded)
 }
 
@@ -252,8 +290,8 @@ pub fn actor_cmd_derive(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         impl From<std::convert::Infallible> for #struct_name {
             #[inline(always)]
-            fn from(_: std::convert::Infallible) -> Self {
-                unreachable!()
+            fn from(cmd: std::convert::Infallible) -> Self {
+                match cmd {}
             }
         }
     };
