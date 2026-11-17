@@ -9,7 +9,7 @@ keywords = ["actor"]
 categories = ["asynchronous"]
 
 [dependencies]
-tokio = { version = "1.53.1", features = ["sync", "rt", "time", "net"] }
+tokio = { version = "1.54.1", features = ["sync", "rt", "time", "net"] }
 pupactor_macro = { version = "0.2.1", path = "../pupactor_macro" }
 
 [lints.rust]

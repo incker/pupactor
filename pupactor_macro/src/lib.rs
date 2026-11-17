@@ -1,4 +1,3 @@
-
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields, Ident, LitStr, PathArguments, Type, parse_macro_input};
@@ -38,9 +37,9 @@ pub fn actor_msg_handle_derive(input: TokenStream) -> TokenStream {
                 Err(meta.error("unknown actor attribute"))
             }
         })
-            .unwrap_or_else(|err| {
-                panic!("Failed to parse actor attribute: {}", err);
-            });
+        .unwrap_or_else(|err| {
+            panic!("Failed to parse actor attribute: {}", err);
+        });
 
         let ident = kind.unwrap_or_else(|| {
             panic!("`kind` attribute is required");
@@ -131,7 +130,8 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     // Search type `cmd`
-    let mut cmd_ident = None;
+    let mut cmd_type: Option<Type> = None;
+
     for attr in input.attrs {
         if attr.path().is_ident("actor") {
             attr.parse_nested_meta(|meta| {
@@ -139,21 +139,24 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
                     let value = meta.value()?;
                     let lit_str: LitStr = value.parse()?;
 
-                    cmd_ident = Some(Ident::new(&lit_str.value(), lit_str.span()));
+                    cmd_type = Some(syn::parse_str::<Type>(&lit_str.value()).map_err(|err| {
+                        syn::Error::new(lit_str.span(), format!("invalid `cmd` type: {err}"))
+                    })?);
+
                     Ok(())
                 } else {
                     Err(meta.error("no cmd attribute"))
                 }
             })
-                .unwrap_or_else(|err| {
-                    panic!("Failed to parse actor attribute: {}", err);
-                });
+            .unwrap_or_else(|err| {
+                panic!("Failed to parse actor attribute: {}", err);
+            });
         }
     }
 
     // Actor `cmd` msg. By default, is Infallible
-    let cmd_ident = match cmd_ident {
-        Some(cmd_ident) => quote! { #cmd_ident },
+    let cmd_type = match cmd_type {
+        Some(cmd_type) => quote! { #cmd_type },
         None => quote! { std::convert::Infallible },
     };
 
@@ -165,7 +168,11 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
             .filter_map(|field| {
                 let field_name = field.ident.clone()?;
 
-                if !field.attrs.iter().any(|attr| attr.path().is_ident("listener")) {
+                if !field
+                    .attrs
+                    .iter()
+                    .any(|attr| attr.path().is_ident("listener"))
+                {
                     return None;
                 }
 
@@ -269,7 +276,7 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
         impl #impl_generics pupactor::Actor
             for #struct_name #ty_generics #where_clause
         {
-            type Cmd = #cmd_ident;
+            type Cmd = #cmd_type;
 
             async fn infinite_loop(&mut self) -> Result<Self::Cmd, pupactor::Break> {
                 #internal_loop
@@ -281,16 +288,20 @@ pub fn pupactor_derive(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/// ActorCmd msg required always implement `From<Infallible>`
+/// ActorCmd msg required always implement `From<Infallible>`.
 #[proc_macro_derive(ActorCmd)]
 pub fn actor_cmd_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let struct_name = input.ident;
+
+    let struct_name = &input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let expanded = quote! {
-        impl From<std::convert::Infallible> for #struct_name {
+        impl #impl_generics ::core::convert::From<::core::convert::Infallible>
+            for #struct_name #ty_generics #where_clause
+        {
             #[inline(always)]
-            fn from(cmd: std::convert::Infallible) -> Self {
+            fn from(cmd: ::core::convert::Infallible) -> Self {
                 match cmd {}
             }
         }
